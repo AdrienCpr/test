@@ -34,9 +34,12 @@ jobs:
         shell: bash
         run: |
           ENDPOINT='frontend/o2switch/o2switch-ssh-whitelist/index.live.php'
-          
+
           echo "Get actual whitelisted IPs..."
-          UNIQUE_IPS=$(curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=list" | jq -r '.data.list[] | .address' | sort -u)
+          RESPONSE=$(curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=list")
+          echo "Response: $RESPONSE"
+          UNIQUE_IPS=$(echo "$RESPONSE" | jq -r '.data.list[] | .address' | sort -u)
+  
           for address in $UNIQUE_IPS; do
             if [[ $address == "${{ secrets.IP_TO_KEEP }}" ]]; then
                 echo "Keep this IP, go to the next..."
@@ -49,7 +52,7 @@ jobs:
             sleep 3
           done
           echo "All non-whitelisted IPs deleted!"
-          
+
           echo "Attempt to whitelist IP..."
           curl -sX POST -d 'whitelist[address]=${{ steps.ip.outputs.ipv4 }}' -d 'whitelist[port]=22' "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=add" | jq
 
