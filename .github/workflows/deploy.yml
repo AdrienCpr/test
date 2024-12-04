@@ -1,0 +1,92 @@
+name: Build and Deploy Node.js API
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout le code depuis GitHub
+      - uses: actions/checkout@v4
+
+      # Installation de Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'  # Choisis la version de Node.js que tu utilises
+
+      # Installation des dépendances
+      - name: Install dependencies
+        run: npm install
+
+      # Récupérer l'IP publique du runner GitHub
+      - name: Get runner's public IP
+        id: ip
+        uses: haythem/public-ip@v1.3
+
+      # Ajouter l'IP du runner à la whitelist SSH de o2Switch
+      - name: Whitelist IP on o2Switch
+        shell: bash
+        run: |
+          ENDPOINT='frontend/o2switch/o2switch-ssh-whitelist/index.live.php'
+          echo "Get actual whitelisted IPs..."
+          UNIQUE_IPS=$(curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=list" | jq -r '.data.list[] | .address' | sort -u)
+          for address in $UNIQUE_IPS; do
+            if [[ $address == "${{ secrets.IP_TO_KEEP }}" ]]; then
+                echo "Keep this IP, go to the next..."
+                continue
+            fi
+            echo "Delete this github IP: $address (in & out)"
+            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=remove&address=$address&direction=in&port=22" | jq
+            sleep 3
+            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=remove&address=$address&direction=out&port=22" | jq
+            sleep 3
+          done
+          echo "All non-whitelisted IPs deleted!"
+          echo "Attempt to whitelist IP..."
+          curl -sX POST -d 'whitelist[address]=${{ steps.ip.outputs.ipv4 }}' -d 'whitelist[port]=22' "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=add" | jq
+
+      # Déployer la branche 'dev' sur le préprod
+        #      - name: Deploy on develop branch
+        #if: ${{ github.ref == 'refs/heads/develop' }}
+        #uses: easingthemes/ssh-deploy@main
+          #with:
+          #SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          #ARGS: "-rlgoDzvc -i --delete-after"
+          #SOURCE: "./"
+          #REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          #REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          #TARGET: ${{ secrets.REMOTE_PREPROD_TARGET }}
+          #EXCLUDE: "/dist/, /node_modules/"
+          #SCRIPT_BEFORE: |
+          # whoami
+          # ls -al
+          #SCRIPT_AFTER: |
+          # whoami
+          #  ls -al
+        #  echo $RSYNC_STDOUT
+
+      # Déployer la branche 'main' sur le prod
+      - name: Deploy on main branch
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: "-rlgoDzvc -i --delete-after"
+          SOURCE: "./"
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          TARGET: ${{ secrets.REMOTE_PROD_TARGET }}
+          EXCLUDE: "/dist/, /node_modules/"
+          SCRIPT_BEFORE: |
+            whoami
+            ls -al
+          SCRIPT_AFTER: |
+            whoami
+            ls -al
+            echo $RSYNC_STDOUT
