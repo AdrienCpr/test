@@ -30,26 +30,28 @@ jobs:
         uses: haythem/public-ip@v1.3
 
       # Ajouter l'IP du runner à la whitelist SSH de o2Switch
-      - name: Whitelist IP on o2Switch
+      - name: Whitelist IP on hosting & delete github old ones (o2switch)
         shell: bash
         run: |
           ENDPOINT='frontend/o2switch/o2switch-ssh-whitelist/index.live.php'
+          
           echo "Get actual whitelisted IPs..."
-          UNIQUE_IPS=$(curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}/$ENDPOINT?r=list" | jq -r '.data.list[] | .address' | sort -u)
+          UNIQUE_IPS=$(curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=list" | jq -r '.data.list[] | .address' | sort -u)
           for address in $UNIQUE_IPS; do
             if [[ $address == "${{ secrets.IP_TO_KEEP }}" ]]; then
                 echo "Keep this IP, go to the next..."
                 continue
             fi
             echo "Delete this github IP: $address (in & out)"
-            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}/$ENDPOINT?r=remove&address=$address&direction=in&port=22" | jq
+            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=remove&address=$address&direction=in&port=22" | jq
             sleep 3
-            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}/$ENDPOINT?r=remove&address=$address&direction=out&port=22" | jq
+            curl -sX GET "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=remove&address=$address&direction=out&port=22" | jq
             sleep 3
           done
           echo "All non-whitelisted IPs deleted!"
+          
           echo "Attempt to whitelist IP..."
-          curl -sX POST -d 'whitelist[address]=${{ steps.ip.outputs.ipv4 }}' -d 'whitelist[port]=22' "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}/$ENDPOINT?r=add" | jq
+          curl -sX POST -d 'whitelist[address]=${{ steps.ip.outputs.ipv4 }}' -d 'whitelist[port]=22' "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=add" | jq
 
       # Déployer la branche 'dev' sur le préprod
         #      - name: Deploy on develop branch
