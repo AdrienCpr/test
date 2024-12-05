@@ -39,7 +39,7 @@ jobs:
           RESPONSE=$(curl -sX GET https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=list )
           echo "Response: $RESPONSE"
           UNIQUE_IPS=$(echo "$RESPONSE" | jq -r '.data.list[] | .address' | sort -u)
-  
+          
           for address in $UNIQUE_IPS; do
             if [[ $address == "${{ secrets.IP_TO_KEEP }}" ]]; then
                 echo "Keep this IP, go to the next..."
@@ -55,20 +55,6 @@ jobs:
 
           echo "Attempt to whitelist IP..."
           curl -sX POST -d 'whitelist[address]=${{ steps.ip.outputs.ipv4 }}' -d 'whitelist[port]=22' "https://${{ secrets.REMOTE_USER }}:${{ secrets.URL_ENCODED_PASSWORD }}@${{ secrets.REMOTE_HOST }}:2083/$ENDPOINT?r=add" | jq
-
-      # Ajouter la clé privée SSH (convertie en PEM)
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          # Convertir la clé en PEM si nécessaire (si la clé est au format RSA classique)
-          if ! openssl rsa -in ~/.ssh/id_rsa -out ~/.ssh/id_rsa.pem; then
-            echo "Failed to convert key to PEM format"
-            exit 1
-          fi
-          # Ajouter l'hôte à la liste des known_hosts pour éviter les avertissements
-          ssh-keyscan -H ${{ secrets.REMOTE_HOST }} >> ~/.ssh/known_hosts
 
       # Déployer la branche 'main' sur le prod
       - name: Deploy on main branch
