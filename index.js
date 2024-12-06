@@ -6,7 +6,7 @@ const app = express();
 
 // routing path
 app.get('/', (req, res) => {
-    res.send('Déploiement continue OKAYYYY');
+    res.send('Déploiement continue');
 });
 
 // Start the server
