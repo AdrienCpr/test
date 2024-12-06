@@ -76,6 +76,7 @@ jobs:
             whoami
             ls -al
             cd ${{ secrets.REMOTE_PROD_TARGET }}
-            npm install  # Install dependencies on remote server
-            pm2 restart index.js
+            npm install 
+            touch tmp/restart.txt
             echo $RSYNC_STDOUT
+            
