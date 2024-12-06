@@ -76,6 +76,10 @@ jobs:
             whoami
             ls -al
             cd ${{ secrets.REMOTE_PROD_TARGET }}
+            
+            rm -f local_ssh_script-before-*.sh
+            rm -f local_ssh_script-after-*.sh
+            
             npm install 
             touch tmp/restart.txt
             echo $RSYNC_STDOUT
