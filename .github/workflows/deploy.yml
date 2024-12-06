@@ -77,4 +77,5 @@ jobs:
             ls -al
             cd ${{ secrets.REMOTE_PROD_TARGET }}
             npm install  # Install dependencies on remote server
+            pm2 restart app
             echo $RSYNC_STDOUT
