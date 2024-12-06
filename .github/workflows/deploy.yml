@@ -62,16 +62,19 @@ jobs:
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          ARGS: "-rlgoDzvc --delete-after"
+          ARGS: "-rlgoDzvc"  # Removed --delete-after to preserve .htaccess
         with:
           SOURCE: "./"
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: ${{ secrets.REMOTE_PROD_TARGET }}
-          EXCLUDE: "/dist/, /node_modules/"
+          EXCLUDE: "/dist/, /node_modules/, /.git/"
           SCRIPT_BEFORE: |
             whoami
             ls -al
           SCRIPT_AFTER: |
             whoami
             ls -al
+            cd ${{ secrets.REMOTE_PROD_TARGET }}
+            npm install  # Install dependencies on remote server
+            echo $RSYNC_STDOUT
